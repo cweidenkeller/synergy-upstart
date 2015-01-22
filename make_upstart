@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+pass=$(echo -n $1|md5sum|awk '{ print $1 }')
+ip=$2
+port=$3
+read -r -d '' template <<EOF
+start on (local-filesystems and net-device-up IFACE=eth0 and runlevel [2])
+stop on shutdown
+respawn
+respawn limit 99 5
+script
+	exec /usr/bin/synergyc -f --no-tray --debug ERROR --name $(hostname) --crypto-pass $pass $ip:$port >> /var/log/synergy.log 2>&1
+end script
+EOF
+echo "$template" > synergy.conf
+init-checkconf synergy.conf
+if [ $? -ne 0 ]; then
+    echo "Not a valid upstart job!"
+    rm synergy.conf
+fi
+mv synergy.conf /etc/init/
+echo "Moved file to /etc/init."
+initctl reload-configuration
+echo "Reloaded upstart config."
+echo "DONE!"
